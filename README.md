@@ -10,6 +10,7 @@ Custom Splunk detection content pack with a CI/CD pipeline. Write detections as 
 detections/          <- saved search .conf files (one per detection)
 macros/              <- macro .conf files
 lookups/             <- lookup CSV files
+dashboards/          <- dashboard XML files
 app_template/        <- static app files (metadata, icons, nav, views)
 app_build.yml        <- app metadata (name, version, author)
 build.py             <- build script (assembles the app)
@@ -61,6 +62,24 @@ Drop `.csv` files into `lookups/`. They get copied into the app's `lookups/` dir
 
 ---
 
+## Adding Dashboards
+
+1. Create a `.xml` dashboard file in `dashboards/`
+2. Make it visible in the app -- two options:
+   - **Prefix the filename with `__`** (e.g. `__my_dashboard.xml`) -- it auto-discovers into the Dashboards nav collection
+   - **Explicitly add it to the nav** in `app_template/default/data/ui/nav/default.xml`:
+     ```xml
+     <collection label="Dashboards">
+       <view name="my_dashboard"/>   <!-- add this line -->
+       <view source="unclassified" match="__"/>
+     </collection>
+     ```
+3. Push to `main`
+
+The build copies all `.xml` files from `dashboards/` into `default/data/ui/views/` automatically. The nav step is what controls whether it actually shows up in the app.
+
+---
+
 ## Versioning
 
 Version format: `major.minor.patch`
@@ -97,6 +116,7 @@ Only changes to these paths trigger the workflow:
 - `detections/`
 - `macros/`
 - `lookups/`
+- `dashboards/`
 - `app_template/`
 - `app_build.yml`
 
