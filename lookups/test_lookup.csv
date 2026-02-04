@@ -1,0 +1,4 @@
+hostname,os_type,environment
+web-server-01,Windows 2019,production
+db-server-01,RHEL 8,production
+dev-laptop-01,Windows 11,development
