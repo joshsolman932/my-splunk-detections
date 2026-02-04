@@ -1,8 +1,8 @@
-<nav search_view="search" color="#65A637">
-  <view name="escu_summary" default="true"/>
-  <view name="search"/>
+<nav search_view="search"  color="#65A637">
+  <view name="search" label="Search" default="true"/>
   <collection label="Dashboards">
     <view name="detection_list"/>
     <view source="unclassified" match="__"/>
   </collection>
 </nav>
+
