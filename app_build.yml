@@ -1,0 +1,10 @@
+app:
+  uid: 37057
+  title: Josh_Test
+  appid: Josh_Test
+  version: "0.0"
+  description: This is an app
+  author_name: Josh
+  author_email: Josh
+  author_company: author company
+

@@ -1,0 +1,55 @@
+name: Build Splunk App
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'detections/**'
+      - 'macros/**'
+      - 'lookups/**'
+      - 'dashboards/**'
+      - 'app_template/**'
+      - 'app_build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Build app
+        id: build
+        run: |
+          python build.py | tee build.log
+          VERSION=$(grep "^Version:" build.log | awk '{print $2}')
+          APPID=$(python -c "import yaml; print(yaml.safe_load(open('app_build.yml'))['app']['appid'])")
+          echo "name=${APPID}_${VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "appid=${APPID}" >> $GITHUB_OUTPUT
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.name }}
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.build.outputs.version }}
+          name: ${{ steps.build.outputs.appid }} v${{ steps.build.outputs.version }}
+          files: dist/*.tgz
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
