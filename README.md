@@ -7,8 +7,8 @@ Custom Splunk detection content pack with a CI/CD pipeline. Write detections as 
 ## Directory Structure
 
 ```
-detections/          <- saved search .conf files (one per detection)
-macros/              <- macro .conf files
+detections/          <- saved search .conf or .yml files (one per detection)
+macros/              <- macro .conf files (or define inline in YAML detections)
 lookups/             <- lookup CSV files
 dashboards/          <- dashboard XML files
 app_template/        <- static app files (metadata, icons, nav, views)
@@ -21,8 +21,11 @@ build.py             <- build script (assembles the app)
 
 ## Adding a Detection
 
-1. Create a new `.conf` file in `detections/` (e.g. `my_detection.conf`)
-2. Write your saved search stanza in standard Splunk conf format:
+There are two ways to add detections: directly as Splunk `.conf` files, or as structured `.yml` files that get converted at build time. Both file types can coexist in `detections/` and are merged into a single `savedsearches.conf`.
+
+### Option 1: Splunk .conf File (Direct)
+
+Create a `.conf` file in `detections/` (e.g. `my_detection.conf`) with a standard Splunk saved search stanza:
 
 ```ini
 [My Detection Name]
@@ -37,22 +40,117 @@ enableSched = 1
 alert.track = 1
 ```
 
-3. Push to `main` -- the pipeline builds automatically
+This is a direct pass-through -- the stanza is included in the built app exactly as written.
 
-All `.conf` files in `detections/` are concatenated into `savedsearches.conf` in the built app. Files are processed in alphabetical order by filename.
+### Option 2: YAML Detection File
+
+Create a `.yml` file in `detections/` (e.g. `my_detection.yml`). The build script converts it into the corresponding `savedsearches.conf` stanza automatically, including correlation search, notable, RBA, and drilldown configuration.
+
+```yaml
+name: My Detection Name
+description:
+  - Detects suspicious activity on dest
+search: 'index=main sourcetype=foo | stats count by dest'
+type: ebd
+enabled_by_default: false
+
+scheduling:
+  cron_schedule: '0 * * * *'
+  earliest_time: '-70m@m'
+  latest_time: '-10m@m'
+  schedule_window: auto
+
+alert_action:
+  notable:
+    enabled: true
+    rule_title: '%name%'
+    rule_description: '%description%'
+    severity: high
+    field: user
+    type: user
+    score: 0
+    domain: threat                # one of: access endpoint network threat identity audit
+
+rba:
+  enabled: true
+  message:
+    - An instance of $process_name$ was detected on $dest$ by $user$.
+  risk_objects:
+    - field: user
+      type: user
+      score: 56
+    - field: dest
+      type: system
+      score: 60
+  threat_objects:
+    - field: process_name
+      type: process_name
+
+drilldown_searches:
+  - name: View the detection results for $user$ and $dest$
+    search: '%original_detection_search% | search user = $user$ dest = $dest$'
+    earliest_offset: $info_min_time$
+    latest_offset: $info_max_time$
+
+annotations:
+  cve:
+    - CVE-2024-12345
+  mitre_attack:
+    - T1059.001
+  status:
+    - production
+
+macros:
+  - name: my_macro
+    definition: search index=main
+    description: filters to main index
+  - name: my_macro_with_arg(1)
+    definition: search index=main $field$
+    description: filters with a field argument
+    arguments:
+      - field
+```
+
+Template variables `%name%`, `%description%`, and `%original_detection_search%` are resolved automatically in fields like `rule_title`, `rule_description`, and drilldown searches.
+
+The stanza name is auto-generated as `Domain - Name - Rule` (e.g. `Threat - My Detection Name - Rule`).
 
 ---
 
 ## Adding a Macro
 
-Same pattern as detections. Create a `.conf` file in `macros/`:
+There are two ways to add macros:
+
+### Option 1: Splunk .conf File (Direct)
+
+Create a `.conf` file in `macros/`:
 
 ```ini
-[my_macro(field)]
+[my_macro(1)]
 definition = where $field$!=""
+args = field
 ```
 
-All macro `.conf` files get concatenated into `macros.conf`.
+All macro `.conf` files in `macros/` get concatenated into `macros.conf`.
+
+### Option 2: Inline in a YAML Detection
+
+Add a `macros:` section to any `.yml` detection file in `detections/`:
+
+```yaml
+macros:
+  - name: my_macro
+    definition: search index=main
+    description: filters to main index
+
+  - name: my_macro_with_arg
+    definition: search index=main $field$
+    description: filters with a field argument
+    arguments:
+      - field
+```
+
+Macros defined in YAML files are extracted at build time and merged with any `.conf` macros into a single `macros.conf`.
 
 ---
 

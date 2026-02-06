@@ -1,0 +1,76 @@
+name: Yaml Test                     
+description: 
+  - This is a test yaml file
+search: 'index=* | head 3'                                       
+type: ebd
+enabled_by_default: false                          
+
+scheduling:
+  cron_schedule: '*/2 * * * *'                       
+  earliest_time: '-70m@m'                          
+  latest_time: '-10m@m'                            
+  schedule_window: auto                            
+
+# creates finding , don't enable more than one #
+
+alert_action:
+  notable:
+    enabled: true                                        
+    rule_title: '%name%'                           
+    rule_description: '%description%'
+    severity: high
+    field: user
+    type: user
+    score: 0
+    #one of access endpoint network threat identity audit #
+    domain: threat
+
+# creates intermediate finding #
+rba:
+  enabled: true
+  message: 
+    - An instance of $process_name$ was detected on $dest$ by $user$.
+
+  risk_objects:                                    
+    - field: user                                  
+      type: user                                   
+      score: 56                                   
+
+    - field: dest
+      type: system
+      score: 60
+
+  threat_objects:                                  
+    - field: process_name                          
+      type: process_name                           
+                                                                    
+
+drilldown_searches:
+  - name: View the detection results for $user$ and $dest$
+    search: '%original_detection_search% | search user = $user$ dest = $dest$'
+    earliest_offset: $info_min_time$               
+    latest_offset: $info_max_time$                 
+
+  - name: View risk events for the last 7 days for $user$ and $dest$
+    search: 'index=* | head 2'
+    earliest_offset: $info_min_time$
+    latest_offset: $info_max_time$
+
+annotations:                                       
+  cve:
+    - CVE-2024-12345
+  mitre_attack:
+    - T1059.001
+  status:
+    - production
+
+macros:
+  - name: yaml_test_macro
+    definition: search index=yaml
+    description: testing macro creation
+
+  - name: yaml_test_macro_arg 
+    definition: search index=yaml($field$)
+    description: testing of args
+    arguments:
+      - field
